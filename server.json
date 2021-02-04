@@ -350,6 +350,29 @@
         }
       ],
       "id": 12
+    },
+    {
+      "product_id": 1,
+      "name": "Ao molho",
+      "description": "Macarrão ao molho branco, fughi e cheiro verde das montanhas.",
+      "price": "R$19,90",
+      "category": 1,
+      "thumbnail_url": "https://storage.googleapis.com/golden-wind/bootcamp-gostack/desafio-food/food1.png",
+      "extras": [
+        {
+          "id": 1,
+          "name": "Bacon",
+          "value": 1.5,
+          "quantity": 0
+        },
+        {
+          "id": 2,
+          "name": "Frango",
+          "value": 2,
+          "quantity": 0
+        }
+      ],
+      "id": 13
     }
   ],
   "favorites": [
