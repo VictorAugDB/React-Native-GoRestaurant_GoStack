@@ -46,12 +46,6 @@ import {
 
 interface Params {
   id: number;
-  isFavorite: boolean;
-  selectedCategory: number;
-}
-
-interface ExtraValue {
-  value: number;
 }
 
 interface Extra {
@@ -73,16 +67,16 @@ interface Food {
 }
 
 const FoodDetails: React.FC = () => {
-  const route = useRoute();
-
-  const routeParams = route.params as Params;
-
   const [food, setFood] = useState({} as Food);
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [isFavorite, setIsFavorite] = useState(routeParams.isFavorite);
+  const [isFavorite, setIsFavorite] = useState(false);
   const [foodQuantity, setFoodQuantity] = useState(1);
 
   const navigation = useNavigation();
+
+  const route = useRoute();
+
+  const routeParams = route.params as Params;
 
   useEffect(() => {
     async function loadFood(): Promise<void> {
@@ -92,13 +86,10 @@ const FoodDetails: React.FC = () => {
         ...response.data,
         formattedPrice: formatValue(response.data.price),
       });
-      const extrasAux: Extra[] = response.data.extras;
 
       setExtras(
-        extrasAux.map(extra => ({
-          id: extra.id,
-          name: extra.name,
-          value: extra.value,
+        response.data.extras.map((extra: Omit<Extra, 'quantity'>) => ({
+          ...extra,
           quantity: 0,
         })),
       );
@@ -107,14 +98,24 @@ const FoodDetails: React.FC = () => {
     loadFood();
   }, [routeParams]);
 
+  useEffect(() => {
+    async function setFavorite(): Promise<void> {
+      const response = await api.get(`favorites`);
+
+      response.data.map((favorite: Food) =>
+        favorite.id === food.id ? setIsFavorite(true) : setIsFavorite(false),
+      );
+    }
+
+    setFavorite();
+  }, [food.id]);
+
   function handleIncrementExtra(id: number): void {
     setExtras(
       extras.map(extra =>
         extra.id === id
           ? {
-              id: extra.id,
-              name: extra.name,
-              value: extra.value,
+              ...extra,
               quantity: extra.quantity + 1,
             }
           : extra,
@@ -127,9 +128,7 @@ const FoodDetails: React.FC = () => {
       extras.map(extra =>
         extra.id === id && extra.quantity > 0
           ? {
-              id: extra.id,
-              name: extra.name,
-              value: extra.value,
+              ...extra,
               quantity: extra.quantity - 1,
             }
           : extra,
@@ -154,13 +153,13 @@ const FoodDetails: React.FC = () => {
   const toggleFavorite = useCallback(() => {
     async function setFavorite(): Promise<void> {
       try {
-        console.log(food.id);
-        if (isFavorite && food.id) {
-          setIsFavorite(!isFavorite);
+        if (isFavorite) {
+          api.delete(`/favorites/${food.id}`);
+        } else {
+          api.post('favorites', food);
         }
-        if (!isFavorite && food.id) {
-          setIsFavorite(!isFavorite);
-        }
+
+        setIsFavorite(!isFavorite);
       } catch (err) {
         console.log(err);
       }
@@ -170,24 +169,11 @@ const FoodDetails: React.FC = () => {
   }, [isFavorite, food]);
 
   const cartTotal = useMemo(() => {
-    let extraTotal;
+    const extraTotal = extras.reduce((accumulator: number, extra: Extra) => {
+      return accumulator + extra.value * extra.quantity;
+    }, 0);
 
-    if (extras.length) {
-      extraTotal = extras.reduce(
-        (accumulator: ExtraValue, extra: Extra) => {
-          accumulator.value += extra.value * extra.quantity;
-
-          return accumulator;
-        },
-        {
-          value: 0,
-        },
-      );
-    }
-
-    return extraTotal
-      ? formatValue(extraTotal.value + food.price * foodQuantity)
-      : formatValue(0);
+    return formatValue((extraTotal + food.price) * foodQuantity);
   }, [extras, food, foodQuantity]);
 
   async function handleFinishOrder(): Promise<void> {
@@ -195,7 +181,7 @@ const FoodDetails: React.FC = () => {
       product_id: food.id,
       name: food.name,
       description: food.description,
-      price: cartTotal,
+      price: parseFloat(cartTotal.replace('R$', '').replace(',', '.')),
       category: food.category,
       thumbnail_url: food.image_url,
       extras,
